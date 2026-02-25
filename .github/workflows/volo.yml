@@ -37,12 +37,10 @@ jobs:
         env:
           DEBUG: "1"
           VOLO_URL: https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&programTypes%5B0%5D=PICKUP&venueIds%5B0%5D=3b7a144a-5776-4f12-81bf-f7a57cfd6612
-          VOLO_VENUE_ID: 3b7a144a-5776-4f12-81bf-f7a57cfd6612
+          VENUE_NAME_MUST_CONTAIN: boys and girls club of lodi
           SMS_EMAIL: 2402777979@tmomail.net
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          AUTO_SIGNUP: "1"
-          VOLO_STORAGE_STATE_B64: ${{ secrets.VOLO_STORAGE_STATE_B64 }}
         run: |
           python volo_watch_once.py
 
@@ -52,13 +50,6 @@ jobs:
         with:
           name: volo-screenshot
           path: screenshot.png
-
-      - name: Upload captured payloads
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: volo-payloads
-          path: payloads/
 
       - name: Save seen.json cache
         uses: actions/cache/save@v4
