@@ -1,3 +1,39 @@
+name: Volo Open Play Watcher
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Restore last run's seen.json (prevents duplicate alerts)
+      - name: Restore seen.json cache
+        uses: actions/cache/restore@v4
+        with:
+          path: seen.json
+          key: seen-${{ github.run_id }}
+          restore-keys: |
+            seen-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
       - name: Run bot once
         env:
           VOLO_URL: https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&venueIds%5B0%5D=d87a520a-8b88-4945-8ca9-e63259de3607
@@ -5,8 +41,14 @@
           SMS_EMAIL: 2402777979@tmomail.net
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-
           AUTO_SIGNUP: "1"
           VOLO_STORAGE_STATE_B64: ${{ secrets.VOLO_STORAGE_STATE_B64 }}
         run: |
           python volo_watch_once.py
+
+      # Save updated seen.json for next run
+      - name: Save seen.json cache
+        uses: actions/cache/save@v4
+        with:
+          path: seen.json
+          key: seen-${{ github.run_id }}
