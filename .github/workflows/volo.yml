@@ -38,7 +38,7 @@ jobs:
         env:
           DEBUG: "1"
           VOLO_URL: https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&programTypes%5B0%5D=PICKUP&venueIds%5B0%5D=3b7a144a-5776-4f12-81bf-f7a57cfd6612
-          VOLO_VENUE_ID: 5B0%5D=3b7a144a-5776-4f12-81bf-f7a57cfd6612
+          VOLO_VENUE_ID: 3b7a144a-5776-4f12-81bf-f7a57cfd6612
           SMS_EMAIL: 2402777979@tmomail.net
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
