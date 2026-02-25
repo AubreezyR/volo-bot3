@@ -1,0 +1,12 @@
+      - name: Run bot once
+        env:
+          VOLO_URL: https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&venueIds%5B0%5D=d87a520a-8b88-4945-8ca9-e63259de3607
+          VOLO_VENUE_ID: d87a520a-8b88-4945-8ca9-e63259de3607
+          SMS_EMAIL: 2402777979@tmomail.net
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+
+          AUTO_SIGNUP: "1"
+          VOLO_STORAGE_STATE_B64: ${{ secrets.VOLO_STORAGE_STATE_B64 }}
+        run: |
+          python volo_watch_once.py
