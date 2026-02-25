@@ -21,10 +21,12 @@ SMS_EMAIL = os.environ.get("SMS_EMAIL", "2402777979@tmomail.net")
 GMAIL_USER = os.environ.get("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD")
 
-# Auto-signup toggles
 AUTO_SIGNUP = os.environ.get("AUTO_SIGNUP", "0") == "1"
 VOLO_STORAGE_STATE_B64 = os.environ.get("VOLO_STORAGE_STATE_B64", "")
 
+DEBUG = os.environ.get("DEBUG", "0") == "1"
+
+# Keep keywords, but we’ll relax filtering if DEBUG shows we’re excluding legit sessions.
 OPEN_PLAY_KEYWORDS = [
     "open play",
     "pickup",
@@ -32,6 +34,7 @@ OPEN_PLAY_KEYWORDS = [
     "drop-in",
     "drop in",
     "open gym",
+    "open volleyball",
 ]
 
 
@@ -98,7 +101,7 @@ def deep_iter(obj: Any) -> Iterable[Any]:
 def looks_like_event(d: Dict[str, Any]) -> bool:
     keys = {k.lower() for k in d.keys()}
     hits = 0
-    for k in ["title", "name", "start", "starttime", "startsat", "venue", "venueid"]:
+    for k in ["title", "name", "start", "starttime", "startsat", "venue", "venueid", "sport"]:
         if k in keys:
             hits += 1
     return hits >= 2
@@ -113,11 +116,13 @@ def extract_events(payload: Any) -> List[Dict[str, Any]]:
 
 
 def venue_matches(event: Dict[str, Any]) -> bool:
+    # We keep venueId filtering, but in DEBUG we’ll also show what we saw.
     return VENUE_ID in json.dumps(event, ensure_ascii=False)
 
 
 def is_volleyball(event: Dict[str, Any]) -> bool:
-    return "volleyball" in normalize(json.dumps(event, ensure_ascii=False))
+    blob = normalize(json.dumps(event, ensure_ascii=False))
+    return "volleyball" in blob
 
 
 def is_open_play(event: Dict[str, Any]) -> bool:
@@ -133,18 +138,19 @@ def is_available(event: Dict[str, Any]) -> bool:
 
 
 def event_summary(event: Dict[str, Any]) -> str:
-    title = str(event.get("title") or event.get("name") or "Volo Volleyball Open Play")
-    start = str(event.get("start") or event.get("startTime") or event.get("startsAt") or "")
-    return f"{title} | {start}".strip(" |")
+    title = str(event.get("title") or event.get("name") or "Volo Volleyball")
+    start = str(event.get("start") or event.get("startTime") or event.get("startsAt") or event.get("dateTime") or "")
+    venue = ""
+    if isinstance(event.get("venue"), dict):
+        venue = str(event["venue"].get("name") or "")
+    return " | ".join([p for p in [title, start, venue] if p])
 
 
 def event_url(event: Dict[str, Any]) -> str:
-    # Try common URL fields if present
     for k in ["url", "eventUrl", "href", "link", "shareUrl"]:
         v = event.get(k)
         if isinstance(v, str) and v.startswith("http"):
             return v
-    # Fallback: no direct link found
     return DISCOVER_URL
 
 
@@ -163,13 +169,6 @@ def write_storage_state_from_secret() -> Optional[str]:
 
 
 def attempt_signup(playwright, target_url: str) -> bool:
-    """
-    Best-effort signup attempt:
-    - Uses stored login state
-    - Navigates to event page
-    - Clicks obvious Register/Join buttons
-    - If it encounters payment/verification, it stops (no bypass)
-    """
     storage_path = write_storage_state_from_secret()
     if not storage_path:
         print("⚠️ No storage state available; skipping auto-signup.", flush=True)
@@ -183,62 +182,48 @@ def attempt_signup(playwright, target_url: str) -> bool:
         page.goto(target_url, wait_until="networkidle", timeout=60_000)
         page.wait_for_timeout(1500)
 
-        # If we got redirected to login, state is expired
         if "login" in page.url.lower():
-            print("⚠️ Session appears expired (redirected to login).", flush=True)
+            print("⚠️ Session expired (redirected to login).", flush=True)
             return False
 
-        # Try a few likely button labels
-        candidates = [
-            "Register",
-            "Join",
-            "Sign up",
-            "Sign Up",
-            "Enroll",
-        ]
-
+        candidates = ["Register", "Join", "Sign up", "Sign Up", "Enroll"]
         clicked = False
+
         for label in candidates:
-            locator = page.get_by_role("button", name=re.compile(f"^{re.escape(label)}$", re.I))
-            if locator.count() > 0:
-                locator.first.click(timeout=5_000)
+            btn = page.get_by_role("button", name=re.compile(label, re.I))
+            if btn.count() > 0:
+                btn.first.click(timeout=5_000)
                 clicked = True
                 break
 
         if not clicked:
-            # Sometimes buttons are links
             for label in candidates:
-                locator = page.get_by_role("link", name=re.compile(label, re.I))
-                if locator.count() > 0:
-                    locator.first.click(timeout=5_000)
+                lnk = page.get_by_role("link", name=re.compile(label, re.I))
+                if lnk.count() > 0:
+                    lnk.first.click(timeout=5_000)
                     clicked = True
                     break
 
         if not clicked:
-            print("⚠️ Could not find a Register/Join button.", flush=True)
+            print("⚠️ No Register/Join button found.", flush=True)
             return False
 
         page.wait_for_timeout(2000)
 
-        # Safety stop: if payment/verification appears, do NOT proceed automatically.
         page_text = normalize(page.inner_text("body"))
-        risky_markers = ["captcha", "payment", "card number", "checkout", "verify", "3d secure"]
-        if any(m in page_text for m in risky_markers):
-            print("⚠️ Hit payment/verification step; stopping auto-signup.", flush=True)
+        risky = ["captcha", "payment", "card number", "checkout", "verify", "3d secure"]
+        if any(r in page_text for r in risky):
+            print("⚠️ Hit payment/verification; stopping.", flush=True)
             return False
 
-        # If there is a final confirmation button for free checkout, click once
         confirm = page.get_by_role("button", name=re.compile(r"(confirm|complete|finish|place|submit)", re.I))
         if confirm.count() > 0:
             confirm.first.click(timeout=5_000)
             page.wait_for_timeout(1500)
 
-        # We can’t be 100% sure without a specific success selector,
-        # so we treat “no obvious blocker” as success-ish.
         return True
-
     except Exception as e:
-        print(f"❌ Auto-signup attempt error: {e}", flush=True)
+        print(f"❌ Auto-signup error: {e}", flush=True)
         return False
     finally:
         context.close()
@@ -252,15 +237,29 @@ def main():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        json_buffer: List[Dict[str, Any]] = []
+        json_events: List[Dict[str, Any]] = []
+        json_responses_seen: List[str] = []
 
         def on_response(resp):
+            # More robust: try to parse JSON even if content-type is wrong.
             try:
-                ct = (resp.headers.get("content-type") or "").lower()
-                if "application/json" not in ct:
+                url = resp.url
+                # ignore big binaries
+                if any(url.lower().endswith(x) for x in [".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2"]):
                     return
-                data = resp.json()
-                json_buffer.extend(extract_events(data))
+
+                body = resp.text()
+                if not body:
+                    return
+
+                # Heuristic: JSON bodies start with { or [
+                s = body.lstrip()
+                if not (s.startswith("{") or s.startswith("[")):
+                    return
+
+                data = json.loads(body)
+                json_responses_seen.append(url)
+                json_events.extend(extract_events(data))
             except Exception:
                 return
 
@@ -268,36 +267,53 @@ def main():
 
         print(f"Loading: {DISCOVER_URL}", flush=True)
         page.goto(DISCOVER_URL, wait_until="networkidle", timeout=60_000)
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(2500)
 
-        matches = []
-        for ev in json_buffer:
+        # DOM fallback scrape (always)
+        dom_text = normalize(page.inner_text("body"))
+        if DEBUG:
+            print(f"[DEBUG] DOM contains 'volleyball'? {'volleyball' in dom_text}", flush=True)
+            print(f"[DEBUG] JSON responses captured: {len(json_responses_seen)}", flush=True)
+            for u in json_responses_seen[:10]:
+                print(f"[DEBUG] JSON URL: {u}", flush=True)
+            print(f"[DEBUG] Event-like dicts extracted: {len(json_events)}", flush=True)
+
+        # Filter JSON-derived events
+        filtered = []
+        for ev in json_events:
             if not venue_matches(ev):
                 continue
             if not is_volleyball(ev):
                 continue
+            # Keep open-play filter, but we’ll print candidates in DEBUG
             if not is_open_play(ev):
                 continue
             if not is_available(ev):
                 continue
-            matches.append(ev)
+            filtered.append(ev)
+
+        if DEBUG:
+            # show some “near misses” to diagnose keywords/venue filtering
+            candidates = []
+            for ev in json_events:
+                if venue_matches(ev) and is_volleyball(ev):
+                    candidates.append(ev)
+            print(f"[DEBUG] Venue+Volleyball candidates (before open-play filter): {len(candidates)}", flush=True)
+            for ev in candidates[:25]:
+                print("[DEBUG] CANDIDATE:", event_summary(ev), flush=True)
 
         new_found = 0
-        for ev in matches:
+        for ev in filtered:
             url = event_url(ev)
             summary = event_summary(ev)
             sid = stable_id(summary, url)
-
             if sid in seen:
                 continue
-
             seen.add(sid)
             new_found += 1
 
-            # Notify first (so you still get it even if signup fails)
             notify(f"🏐 New Volo Open Play found:\n{summary}\n{url}")
 
-            # Attempt auto signup (best-effort)
             if AUTO_SIGNUP:
                 ok = attempt_signup(p, url)
                 if ok:
@@ -307,6 +323,11 @@ def main():
 
         if new_found == 0:
             print("No new matching sessions.", flush=True)
+
+            # If we got *zero* filtered matches, but DOM clearly shows volleyball,
+            # your sessions might not include our open-play keywords.
+            if "volleyball" in dom_text:
+                print("ℹ️ Page shows volleyball text; filters may be too strict.", flush=True)
 
         save_seen(seen)
 
