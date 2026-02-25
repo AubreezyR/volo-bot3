@@ -19,9 +19,6 @@ DEBUG = os.environ.get("DEBUG", "0") == "1"
 PROGRAM_KEYWORDS = ["pickup", "drop-in", "drop in", "open play", "open gym"]
 SPORT_KEYWORD = "volleyball"
 
-# Optional: lock to a venue name you see on the card (e.g. "boys and girls club of lodi")
-VENUE_NAME_MUST_CONTAIN = os.environ.get("VENUE_NAME_MUST_CONTAIN", "").strip().lower()
-
 
 def norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
@@ -106,8 +103,6 @@ def main():
                 if not any(k in t for k in PROGRAM_KEYWORDS):
                     continue
                 if "sold out" in t or "waitlist" in t:
-                    continue
-                if VENUE_NAME_MUST_CONTAIN and VENUE_NAME_MUST_CONTAIN not in t:
                     continue
 
                 # avoid tiny/huge containers
