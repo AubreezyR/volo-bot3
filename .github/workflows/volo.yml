@@ -1,4 +1,4 @@
-name: Volo Open Play Watcher
+name: Volo Open Play Watchers
 
 on:
   schedule:
