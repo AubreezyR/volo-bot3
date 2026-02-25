@@ -43,6 +43,8 @@ def save_seen(seen: set[str]) -> None:
         json.dump(sorted(seen), f, indent=2)
 
 
+RECIPIENTS = ["2402777979@tmomail.net", "auburn6@gmail.com"]
+
 def send_sms(message: str) -> None:
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         raise RuntimeError("Missing GMAIL_USER / GMAIL_APP_PASSWORD (GitHub secrets).")
@@ -50,14 +52,13 @@ def send_sms(message: str) -> None:
     message = message[:450]
     msg = MIMEText(message)
     msg["From"] = GMAIL_USER
-    msg["To"] = SMS_EMAIL
+    msg["To"] = ", ".join(RECIPIENTS)  # header must be a string
     msg["Subject"] = ""
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
         server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        refused = server.sendmail(GMAIL_USER, [SMS_EMAIL], msg.as_string())
+        refused = server.sendmail(GMAIL_USER, RECIPIENTS, msg.as_string())  # pass list directly
 
-    # If refused is non-empty, delivery was rejected at SMTP time
     if refused:
         raise RuntimeError(f"SMTP refused recipients: {refused}")
 
@@ -131,10 +132,12 @@ def main():
         new_found = 0
         for summary in uniq:
             sid = stable_id(summary)
+            if sid in seen:
+                continue
             seen.add(sid)
             new_found += 1
             send_sms(f"🏐 Volo Volleyball found:\n{summary}\n{VOLO_URL}")
-            print("📲 Sent SMS alert.", flush=True)
+            print("📲 Sent alert.", flush=True)
 
         if new_found == 0:
             print("No new matching sessions.", flush=True)
