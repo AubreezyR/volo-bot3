@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright
 
 DISCOVER_URL = os.environ.get(
     "VOLO_URL",
-    "https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&venueIds%5B0%5D=d87a520a-8b88-4945-8ca9-e63259de3607"
+    "https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&programTypes%5B0%5D=PICKUP&programTypes%5B1%5D=DROPIN&venueIds%5B0%5D=3b7a144a-5776-4f12-81bf-f7a57cfd6612"
 )
 VENUE_ID = os.environ.get("VOLO_VENUE_ID", "d87a520a-8b88-4945-8ca9-e63259de3607")
 
