@@ -2,7 +2,7 @@ name: Volo Open Play Watchers
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/6 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
       - name: Run bot once
         env:
           DEBUG: "0"
-          VOLO_URL: https://YOUR_FILTERED_URL_HERE
+          VOLO_URL: https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&programTypes%5B0%5D=PICKUP&programTypes%5B1%5D=DROPIN&venueIds%5B0%5D=d87a520a-8b88-4945-8ca9-e63259de3607&venueIds%5B1%5D=c1c5bae2-654e-4f58-81f6-825d6cbdf5d3&venueIds%5B2%5D=b6443f56-7157-41e1-8804-faded173e515&venueIds%5B3%5D=82dbb9a7-9ef0-4ec5-9e50-5b9c2836c633&timeLow=0&timeHigh=1410
           VENUE_NAME_MUST_CONTAIN: boys and girls club of lodi   # optional
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
