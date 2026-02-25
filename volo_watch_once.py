@@ -8,8 +8,10 @@ DISCOVER_URL = os.environ["VOLO_URL"]
 VENUE_ID = os.environ["VOLO_VENUE_ID"]
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 
+
 def normalize(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
+
 
 def deep_iter(obj: Any) -> Iterable[Any]:
     stack = [obj]
@@ -21,8 +23,9 @@ def deep_iter(obj: Any) -> Iterable[Any]:
         elif isinstance(cur, list):
             stack.extend(cur)
 
+
 def dicts_containing_string(payload: Any, needle: str) -> List[Dict[str, Any]]:
-    out = []
+    out: List[Dict[str, Any]] = []
     for node in deep_iter(payload):
         if isinstance(node, dict):
             try:
@@ -31,6 +34,7 @@ def dicts_containing_string(payload: Any, needle: str) -> List[Dict[str, Any]]:
             except Exception:
                 pass
     return out
+
 
 def main():
     json_payloads: List[Tuple[str, Any]] = []
@@ -54,11 +58,13 @@ def main():
 
         page.on("response", on_response)
 
-        page.goto(DISCOVER_URL, wait_until="networkidle", timeout=60_000)
-        page.wait_for_timeout(2500)
+        # Use domcontentloaded to avoid SPA "networkidle" hangs
+        page.goto(DISCOVER_URL, wait_until="domcontentloaded", timeout=60_000)
+        page.wait_for_timeout(3000)
 
-        # Save a screenshot too (helps confirm the page)
-        page.screenshot(path="screenshot.png", full_page=True)
+        # Screenshot without full_page to avoid timeouts on long/infinite pages
+        page.set_viewport_size({"width": 1280, "height": 720})
+        page.screenshot(path="screenshot.png", timeout=120_000)
 
     print(f"[DEBUG] JSON payloads parsed: {len(json_payloads)}", flush=True)
 
@@ -92,6 +98,7 @@ def main():
     # and the backend payloads don't include venueId in the objects we can see.
     if total_hits == 0:
         print("⚠️ VenueId not found in captured JSON payloads. Backend may not include it, or it’s encoded differently.", flush=True)
+
 
 if __name__ == "__main__":
     main()
