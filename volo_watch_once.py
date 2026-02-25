@@ -45,18 +45,23 @@ def save_seen(seen: set[str]) -> None:
 
 def send_sms(message: str) -> None:
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        print("⚠ Missing GMAIL_USER / GMAIL_APP_PASSWORD secrets.", flush=True)
-        return
+        raise RuntimeError("Missing GMAIL_USER / GMAIL_APP_PASSWORD (GitHub secrets).")
 
-    message = message[:450]  # keep short for SMS gateway
+    message = message[:450]
     msg = MIMEText(message)
     msg["From"] = GMAIL_USER
     msg["To"] = SMS_EMAIL
     msg["Subject"] = ""
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
         server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        server.sendmail(GMAIL_USER, SMS_EMAIL, msg.as_string())
+        refused = server.sendmail(GMAIL_USER, [SMS_EMAIL], msg.as_string())
+
+    # If refused is non-empty, delivery was rejected at SMTP time
+    if refused:
+        raise RuntimeError(f"SMTP refused recipients: {refused}")
+
+    print("✅ SMTP accepted message (does not guarantee carrier delivery).", flush=True)
 
 
 def click_if_visible(page, *, text=None, selector=None, timeout=3000):
@@ -126,8 +131,6 @@ def main():
         new_found = 0
         for summary in uniq:
             sid = stable_id(summary)
-            if sid in seen:
-                continue
             seen.add(sid)
             new_found += 1
             send_sms(f"🏐 Volo Volleyball found:\n{summary}\n{VOLO_URL}")
