@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 
 from playwright.sync_api import sync_playwright
 
-VOLO_URL = os.environ["VOLO_URL"]
+VOLO_URL = "https://www.volosports.com/discover?cityName=New%20York%20Metro%20Area&subView=DAILY&view=SPORTS&sportNames%5B0%5D=Volleyball&programTypes%5B0%5D=PICKUP&programTypes%5B1%5D=DROPIN&venueIds%5B0%5D=3b7a144a-5776-4f12-81bf-f7a57cfd6612"
 
 SMS_EMAIL = "2402777979@tmomail.net"
 GMAIL_USER = os.environ.get("GMAIL_USER")
